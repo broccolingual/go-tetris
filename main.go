@@ -13,6 +13,7 @@ const coldef = termbox.ColorDefault
 const (
 	FIELD_HEIGHT = 20
 	FIELD_WIDTH  = 10
+	QUEUE_MAX    = 5
 )
 
 const (
@@ -55,6 +56,35 @@ type Target struct {
 	Data [4][2]int
 	X    int
 	Y    int
+}
+
+type Queue struct {
+	Elements []Target
+}
+
+func (q Queue) IsEmpty() bool {
+	return len(q.Elements) == 0
+}
+
+func (q Queue) IsFull() bool {
+	return len(q.Elements) == QUEUE_MAX
+}
+
+func (q *Queue) Enqueue(t *Target) bool {
+	if q.IsFull() {
+		return false
+	}
+	q.Elements = append(q.Elements, *t)
+	return true
+}
+
+func (q *Queue) Dequeue() *Target {
+	if q.IsEmpty() {
+		return nil
+	}
+	dequeueData := q.Elements[0]
+	q.Elements = q.Elements[1:]
+	return &dequeueData
 }
 
 func (t *Target) InitTargetMino(x int, y int) {
@@ -100,7 +130,7 @@ func (t *Target) RotateRight() {
 	}
 }
 
-func (t Target) isTouching() bool {
+func (t Target) IsTouching() bool {
 	for _, cood := range t.Data {
 		nx := t.X + cood[0]
 		ny := t.Y + cood[1] + 1
@@ -135,7 +165,6 @@ func DrawString(x int, y int, msg string, fg termbox.Attribute, bg termbox.Attri
 }
 
 func DrawField(x int, y int) {
-	termbox.Clear(coldef, coldef)
 	for dy := 0; dy < FIELD_HEIGHT; dy++ {
 		for dx := 0; dx < FIELD_WIDTH; dx++ {
 			col := FIELDS[dy][dx]
@@ -145,7 +174,14 @@ func DrawField(x int, y int) {
 			DrawString(x+dx*2, y+dy, "  ", coldef, C_PAIRS[col])
 		}
 	}
-	termbox.Flush()
+}
+
+func DrawNextMinos(x int, y int, tQueue Queue) {
+	for i, t := range tQueue.Elements {
+		for _, cood := range t.Data {
+			DrawString(x+cood[0]*2, y+cood[1]+i*4, "  ", coldef, C_PAIRS[t.Type])
+		}
+	}
 }
 
 func main() {
@@ -156,24 +192,41 @@ func main() {
 	defer termbox.Close()
 	// termbox.SetOutputMode(termbox.Output256)
 
+	var tQueue Queue
+
 	w, h := termbox.Size()
 	var x int = w / 2
 	var y int = h / 2
 	var cx int = x - FIELD_WIDTH/2
 	var cy int = y - FIELD_HEIGHT/2
-	t := new(Target)
-	t.InitTargetMino(4, 1)
-	t.SetMino2Field()
-	DrawField(cx, cy)
 
-mainloop:
+TargetSetLoop:
+	for {
+		t := new(Target)
+		t.InitTargetMino(4, 1)
+		if !tQueue.Enqueue(t) {
+			break TargetSetLoop
+		}
+	}
+
+	t := tQueue.Dequeue()
+	nt := new(Target)
+	nt.InitTargetMino(4, 1)
+	tQueue.Enqueue(nt)
+	t.SetMino2Field()
+	termbox.Clear(coldef, coldef)
+	DrawField(cx, cy)
+	DrawNextMinos(cx+FIELD_WIDTH+14, cy+2, tQueue)
+	termbox.Flush()
+
+MainLoop:
 	for {
 		e := termbox.PollEvent()
 		switch e.Type {
 		case termbox.EventKey:
 			switch e.Key {
 			case termbox.KeyEsc:
-				break mainloop
+				break MainLoop
 			case termbox.KeyArrowDown:
 				if t.CanMove(0, 1) {
 					t.Y++
@@ -190,14 +243,22 @@ mainloop:
 				if t.CanMove(-1, 0) {
 					t.X--
 				}
+			case termbox.KeySpace:
+
 			}
 		}
-		if t.isTouching() {
+		if t.IsTouching() {
 			t.Fix()
-			t.InitTargetMino(4, 1)
+			t = tQueue.Dequeue()
+			nt := new(Target)
+			nt.InitTargetMino(4, 1)
+			tQueue.Enqueue(nt)
 		}
 		ClearField()
 		t.SetMino2Field()
+		termbox.Clear(coldef, coldef)
 		DrawField(cx, cy)
+		DrawNextMinos(cx+FIELD_WIDTH+14, cy+2, tQueue)
+		termbox.Flush()
 	}
 }
