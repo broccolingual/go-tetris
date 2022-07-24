@@ -37,42 +37,44 @@ var C_PAIRS = map[int]termbox.Attribute{
 	T:    termbox.ColorMagenta,
 }
 
-var MINOS = [8][3][2]int8{
-	{{0, 0}, {0, 0}, {0, 0}},    // VOID
-	{{-1, 0}, {1, 0}, {2, 0}},   // I
-	{{0, -1}, {1, 0}, {1, -1}},  // O
-	{{-1, 0}, {0, -1}, {1, -1}}, // S
-	{{-1, -1}, {0, -1}, {1, 0}}, // Z
-	{{-1, -1}, {-1, 0}, {1, 0}}, // J
-	{{-1, 0}, {1, 0}, {1, -1}},  // L
-	{{-1, 0}, {0, -1}, {1, 0}},  // T
+var MINOS = [8][4][2]int{
+	{{0, 0}, {0, 0}, {0, 0}, {0, 0}},    // VOID
+	{{0, 0}, {-1, 0}, {1, 0}, {2, 0}},   // I
+	{{0, 0}, {0, -1}, {1, 0}, {1, -1}},  // O
+	{{0, 0}, {-1, 0}, {0, -1}, {1, -1}}, // S
+	{{0, 0}, {-1, -1}, {0, -1}, {1, 0}}, // Z
+	{{0, 0}, {-1, -1}, {-1, 0}, {1, 0}}, // J
+	{{0, 0}, {-1, 0}, {1, 0}, {1, -1}},  // L
+	{{0, 0}, {-1, 0}, {0, -1}, {1, 0}},  // T
 }
 
 var FIELDS [FIELD_HEIGHT][FIELD_WIDTH]int // y, x
 
 type Target struct {
 	Type int
+	Data [4][2]int
 	X    int
 	Y    int
 }
 
 func (t *Target) InitTargetMino(x int, y int) {
-	t.Type = rand.Intn(7) + 1
+	i := rand.Intn(7) + 1
+	t.Type = i
+	t.Data = MINOS[i]
 	t.X = x
 	t.Y = y
 }
 
 func (t Target) SetMino2Field() {
-	FIELDS[t.Y][t.X] = t.Type
-	for _, cood := range MINOS[t.Type] {
-		FIELDS[t.Y+int(cood[1])][t.X+int(cood[0])] = t.Type
+	for _, cood := range t.Data {
+		FIELDS[t.Y+cood[1]][t.X+cood[0]] = t.Type
 	}
 }
 
 func (t Target) CanMove(dx int, dy int) bool {
-	for _, cood := range MINOS[t.Type] {
-		nx := t.X + int(cood[0]) + dx
-		ny := t.Y + int(cood[1]) + dy
+	for _, cood := range t.Data {
+		nx := t.X + cood[0] + dx
+		ny := t.Y + cood[1] + dy
 		if ny < 0 || FIELD_HEIGHT <= ny || nx < 0 || FIELD_WIDTH <= nx || FIELDS[ny][nx] > 10 {
 			return false
 		}
@@ -80,10 +82,28 @@ func (t Target) CanMove(dx int, dy int) bool {
 	return true
 }
 
+func (t Target) CanRotateRight() bool {
+	for _, cood := range t.Data {
+		nx := t.X - cood[1]
+		ny := t.Y + cood[0]
+		if ny < 0 || FIELD_HEIGHT <= ny || nx < 0 || FIELD_WIDTH <= nx || FIELDS[ny][nx] > 10 {
+			return false
+		}
+	}
+	return true
+}
+
+func (t *Target) RotateRight() {
+	for i, cood := range t.Data {
+		t.Data[i][0] = -cood[1]
+		t.Data[i][1] = cood[0]
+	}
+}
+
 func (t Target) isTouching() bool {
-	for _, cood := range MINOS[t.Type] {
-		nx := t.X + int(cood[0])
-		ny := t.Y + int(cood[1]) + 1
+	for _, cood := range t.Data {
+		nx := t.X + cood[0]
+		ny := t.Y + cood[1] + 1
 		if ny == FIELD_HEIGHT || FIELDS[ny][nx] > 10 {
 			return true
 		}
@@ -92,9 +112,8 @@ func (t Target) isTouching() bool {
 }
 
 func (t Target) Fix() {
-	FIELDS[t.Y][t.X] = t.Type + 10
-	for _, cood := range MINOS[t.Type] {
-		FIELDS[t.Y+int(cood[1])][t.X+int(cood[0])] = t.Type + 10
+	for _, cood := range t.Data {
+		FIELDS[t.Y+cood[1]][t.X+cood[0]] = t.Type + 10
 	}
 }
 
@@ -160,8 +179,8 @@ mainloop:
 					t.Y++
 				}
 			case termbox.KeyArrowUp:
-				if t.CanMove(0, -1) {
-					t.Y--
+				if t.CanRotateRight() {
+					t.RotateRight()
 				}
 			case termbox.KeyArrowRight:
 				if t.CanMove(1, 0) {
