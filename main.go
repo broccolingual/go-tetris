@@ -28,14 +28,14 @@ const (
 )
 
 var C_PAIRS = map[int]termbox.Attribute{
-	VOID: termbox.ColorWhite,
-	I:    termbox.ColorCyan,
-	O:    termbox.ColorYellow,
-	S:    termbox.ColorGreen,
-	Z:    termbox.ColorRed,
-	J:    termbox.ColorBlue,
-	L:    termbox.ColorBlack,
-	T:    termbox.ColorMagenta,
+	VOID: termbox.RGBToAttribute(128, 128, 128),
+	I:    termbox.RGBToAttribute(0, 255, 255),
+	O:    termbox.RGBToAttribute(255, 255, 0),
+	S:    termbox.RGBToAttribute(0, 255, 0),
+	Z:    termbox.RGBToAttribute(255, 0, 0),
+	J:    termbox.RGBToAttribute(0, 0, 255),
+	L:    termbox.RGBToAttribute(255, 128, 0),
+	T:    termbox.RGBToAttribute(128, 0, 128),
 }
 
 var MINOS = [8][4][2]int{
@@ -190,7 +190,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer termbox.Close()
-	// termbox.SetOutputMode(termbox.Output256)
+	termbox.SetOutputMode(termbox.OutputRGB)
 
 	var tQueue Queue
 
